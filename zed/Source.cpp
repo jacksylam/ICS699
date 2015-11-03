@@ -35,18 +35,15 @@
 #include <string.h>
 #include <ctime>
 #include <chrono>
+#include <iostream>
+#include <fstream>
 
 
 //opencv includes
 #include <opencv2/core/core.hpp>
-//#include <opencv2/highgui/highgui.hpp>
-//#include <opencv2/imgproc/imgproc.hpp>
 
 //ZED Includes
 #include <zed/Camera.hpp>
-
-//using namespace sl::zed;
-//using namespace std;
 
 //Define the structure and callback for mouse event
 typedef struct mouseOCVStruct {
@@ -75,8 +72,6 @@ static void onMouseCallback(int32_t event, int32_t x, int32_t y, int32_t flag, v
 			printf("\n : NAN\n");
 	}
 }
-
-
 
 
 
@@ -145,8 +140,7 @@ int main(int argc, char **argv) {
 	cv::Mat anaplyph(height, width, CV_8UC4);
 	cv::Mat confidencemap(height, width, CV_8UC4);
 	cv::Mat canny(height, width, CV_8UC4);
-	cv::Mat canny2(height, width, CV_8UC4);
-
+	cv::Mat myDepth(height, width, CV_8UC4);
 
 
 
@@ -154,8 +148,7 @@ int main(int argc, char **argv) {
 	cv::Mat dispDisplay(DisplaySize, CV_8UC4);
 	cv::Mat anaplyphDisplay(DisplaySize, CV_8UC4);
 	cv::Mat confidencemapDisplay(DisplaySize, CV_8UC4);
-	cv::Mat cannyDisplay(DisplaySize, CV_8UC4);
-	cv::Mat cannyDisplay2(DisplaySize, CV_8UC4);
+	cv::Mat depthDisplay(DisplaySize, CV_8UC4);
 
 
 
@@ -172,12 +165,11 @@ int main(int argc, char **argv) {
 	/***/
 
 	//create Opencv Windows
-	//cv::namedWindow("Disp", cv::WINDOW_AUTOSIZE);
+	//cv::namedWinadow("Disp", cv::WINDOW_AUTOSIZE);
 	//cv::setMouseCallback("Disp", onMouseCallback, (void*)&mouseStruct);
 	cv::namedWindow("VIEW", cv::WINDOW_AUTOSIZE);
-	cv::namedWindow("Canny", cv::WINDOW_AUTOSIZE);
-	cv::namedWindow("Canny2", cv::WINDOW_AUTOSIZE);
 
+	bool pictureTaken = false;
 
 	//loop until 'q' is pressed
 	while (key != 'q') {
@@ -189,66 +181,36 @@ int main(int argc, char **argv) {
 		// Get frames and launch the computation
 		bool res = zed->grab(dm_type);
 
-		depth = zed->retrieveMeasure(sl::zed::MEASURE::DEPTH); // Get the pointer
-
 		// The following is the best way to save a disparity map/ Image / confidence map in Opencv Mat.
 		// Be Careful, if you don't save the buffer/data on your own, it will be replace by a next retrieve (retrieveImage, NormalizeMeasure, getView....)
 		// !! Disparity, Depth, confidence are in 8U,C4 if normalized format !! //
 		// !! Disparity, Depth, confidence are in 32F,C1 if only retrieve !! //
 
 		/***************  DISPLAY:  ***************/
-		// Normalize disparity map (resolution defined by MODE in Camera::init, the quality factor)
-		if (DisplayDisp){
-			// slMat2cvMat(zed->normalizeMeasure(MEASURE::DISPARITY)).copyTo(disp);
+
+		slMat2cvMat(zed->getView(static_cast<sl::zed::VIEW_MODE>(ViewID))).copyTo(anaplyph);
+		cv::resize(anaplyph, anaplyphDisplay, DisplaySize);
+
+
+		slMat2cvMat(zed->normalizeMeasure(sl::zed::MEASURE::DEPTH)).copyTo(myDepth);
+
+		// To get the depth at a given position, click on the DISPARITY / DEPTH map image
+		cv::resize(myDepth, depthDisplay, DisplaySize);
+		//std::cout << myDepth.at<double>(0, 0);
+		if (pictureTaken == false){
+			std::ofstream depthFile("depth.txt");
+			if (depthFile.is_open()){
+				depthFile << "myDepth = " << std::endl << myDepth << std::endl << std::endl;
+				depthFile.close();
+			}
+			else {
+				std::cout << "Unable to open myDepth txt file.";
+			}
+			pictureTaken = true;
 		}
-		else{
-
-			//  slMat2cvMat(zed->normalizeMeasure(MEASURE::DEPTH)).copyTo(disp);
-		}
-
-		// To get the depth at a given position, click on the disparity map
-		// cv::resize(disp, dispDisplay,DisplaySize);
-		// imshow("Disp", dispDisplay);
-
-		if (displayConfidenceMap) {
-			// slMat2cvMat(zed->normalizeMeasure(MEASURE::CONFIDENCE)).copyTo(confidencemap);
-			// cv::resize(confidencemap, confidencemapDisplay, DisplaySize);
-			// imshow("confidence", confidencemapDisplay);
-		}
+		imshow(mouseStruct.name, depthDisplay);
 
 
-
-		//Even if Left and Right images are still available through getView() function, it's better since v0.8.1 to use retrieveImage for cpu readback because GPU->CPU is done async during depth estimation. 
-		// Therefore :
-		// -- if disparity estimation is enabled in grab function, retrieveImage will take no time because GPU->CPU copy has already been done during disp estimation
-		// -- if disparity estimation is not enabled, GPU->CPU copy is done in retrieveImage fct, and this function will take the time of copy.
-		if (ViewID == sl::zed::STEREO_LEFT || ViewID == sl::zed::STEREO_RIGHT)
-		{
-			slMat2cvMat(zed->retrieveImage(static_cast<sl::zed::SIDE>(ViewID))).copyTo(anaplyph);
-			cv::resize(anaplyph, anaplyphDisplay, DisplaySize);
-
-
-			slMat2cvMat(zed->retrieveImage(static_cast<sl::zed::SIDE>(sl::zed::STEREO_LEFT))).copyTo(canny);
-
-			//cv::Canny(canny, cannyDisplay, 1, 300, 3, false);
-			//cv::resize(canny, cannyDisplay, DisplaySize);
-		}
-		else
-		{
-			slMat2cvMat(zed->getView(static_cast<sl::zed::VIEW_MODE>(ViewID))).copyTo(anaplyph);
-			cv::resize(anaplyph, anaplyphDisplay, DisplaySize);
-
-
-			slMat2cvMat(zed->getView(static_cast<sl::zed::VIEW_MODE>(sl::zed::STEREO_LEFT))).copyTo(canny);
-			cv::Canny(canny, cannyDisplay, 100, 250, 3, false);
-			cv::HoughLinesP(cannyDisplay, cannyDisplay2, 1, CV_PI / 180, 80, 30, 10);
-
-			//cv::Canny(canny, cannyDisplay2, 0, 100, 3, false);
-			//cv::resize(cannyDisplay, cannyDisplay, DisplaySize);
-		}
-
-		imshow("Canny", cannyDisplay);
-		imshow("Canny2", cannyDisplay2);
 
 		imshow("VIEW", anaplyphDisplay);
 
