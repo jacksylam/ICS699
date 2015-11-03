@@ -1,9 +1,9 @@
 ///////////////////////////////////////////////////////////////////////////
 //
 // Copyright (c) 2015, STEREOLABS.
-// 
+//
 // All rights reserved.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -194,9 +194,9 @@ int main(int argc, char **argv) {
 
 		slMat2cvMat(zed->normalizeMeasure(sl::zed::MEASURE::DEPTH)).copyTo(myDepth);
 
-		// To get the depth at a given position, click on the DISPARITY / DEPTH map image
 		cv::resize(myDepth, depthDisplay, DisplaySize);
-		//std::cout << myDepth.at<double>(0, 0);
+
+		//Take only one picture and output file once.
 		if (pictureTaken == false){
 			std::ofstream depthFile("depth.txt");
 			if (depthFile.is_open()){
@@ -206,6 +206,13 @@ int main(int argc, char **argv) {
 			else {
 				std::cout << "Unable to open myDepth txt file.";
 			}
+
+			//write to png file
+			std::String depthPictureFileName = "depthPicture.png";
+			cv::Mat myDepthPictureMat(height, width, CV_8UC4);
+			cv::cvtcColor(myDepth, myDepthPictureMat, CV_RGBA2RGB);
+			cv::imwrite(depthPictureFileName, myDepthPictureMat);
+
 			pictureTaken = true;
 		}
 		imshow(mouseStruct.name, depthDisplay);
