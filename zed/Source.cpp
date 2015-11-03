@@ -208,9 +208,9 @@ int main(int argc, char **argv) {
 			}
 
 			//write to png file
-			std::String depthPictureFileName = "depthPicture.png";
+			std::string depthPictureFileName = "depthPicture.png";
 			cv::Mat myDepthPictureMat(height, width, CV_8UC4);
-			cv::cvtcColor(myDepth, myDepthPictureMat, CV_RGBA2RGB);
+			cv::cvtColor(myDepth, myDepthPictureMat, CV_RGBA2RGB);
 			cv::imwrite(depthPictureFileName, myDepthPictureMat);
 
 			pictureTaken = true;
