@@ -165,8 +165,8 @@ int main(int argc, char **argv) {
 	/***/
 
 	//create Opencv Windows
-	//cv::namedWinadow("Disp", cv::WINDOW_AUTOSIZE);
-	//cv::setMouseCallback("Disp", onMouseCallback, (void*)&mouseStruct);
+	cv::namedWindow("DEPTH", cv::WINDOW_AUTOSIZE);
+	cv::setMouseCallback("DEPTH", onMouseCallback, (void*)&mouseStruct);
 	cv::namedWindow("VIEW", cv::WINDOW_AUTOSIZE);
 
 	bool pictureTaken = false;
