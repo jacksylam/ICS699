@@ -193,14 +193,14 @@ int main(int argc, char **argv) {
 
 
 		slMat2cvMat(zed->normalizeMeasure(sl::zed::MEASURE::DEPTH)).copyTo(myDepth);
-
+		//slMat2cvMat(depth).copyTo(myDepth); //line crashes cv_cvtcolor
 		cv::resize(myDepth, depthDisplay, DisplaySize);
+
 
 		//Take only one picture and output file once.
 		if (pictureTaken == false){
 			std::ofstream depthFile("depth.txt");
-			std::ofstream maxDepthFile("maxDepth.txt");
-			if (depthFile.is_open()){
+			if (depthFile.is_open()){//testing depth saving
 				depthFile << "myDepth = " << std::endl << myDepth << std::endl << std::endl;
 				depthFile.close();
 			}
@@ -208,18 +208,45 @@ int main(int argc, char **argv) {
 				std::cout << "Unable to open myDepth txt file.";
 			}
 
-			if(maxDepthFile.is_open()){
-				maxDepthFile << zed->getDepthClampValue();
+			std::ofstream depthFileOnly("mmDepth.txt");
+			if (depthFileOnly.is_open()){//save depth in mm
+				float* ptr_d;
+				for (int i = 0; i < depth.height; ++i)
+				{
+					ptr_d = (float*)(depth.data + i * depth.step);
+					for (int j = 0; j < depth.width * depth.channels; ++j)
+					{
+						depthFileOnly << ptr_d[j];
+						// if not end of the current row, we add a space character
+						if (j != (depth.width * depth.channels) - 1)
+							depthFileOnly << " ";
+					}
+					depthFileOnly << "\n";
+				}
+				depthFileOnly.close();
 			}
 			else{
-				std::cout << "Unable to open maxDepthFile txt file.";
+				std::cout << "Error with depth only txt.";
 			}
+
+
 
 			//write to png file
 			std::string depthPictureFileName = "depthPicture.png";
 			cv::Mat myDepthPictureMat(height, width, CV_8UC4);
 			cv::cvtColor(myDepth, myDepthPictureMat, CV_RGBA2RGB);
 			cv::imwrite(depthPictureFileName, myDepthPictureMat);
+
+
+			std::string sideBySidePictureFileName = "sideBySide.png";
+			cv::Mat sideBySidePictureMat(height, 2 * width, CV_8UC4);
+			cv::Mat leftIm(sideBySidePictureMat, cv::Rect(0, 0, width, height));
+			cv::Mat rightIm(sideBySidePictureMat, cv::Rect(width, 0, width, height));
+			slMat2cvMat(zed->retrieveImage(sl::zed::SIDE::LEFT)).copyTo(leftIm);
+			slMat2cvMat(zed->retrieveImage(sl::zed::SIDE::RIGHT)).copyTo(rightIm);
+			cv::cvtColor(sideBySidePictureMat, sideBySidePictureMat, CV_RGBA2RGB);
+			cv::imwrite(sideBySidePictureFileName, sideBySidePictureMat);
+
 
 			pictureTaken = true;
 		}
