@@ -209,10 +209,10 @@ int main(int argc, char **argv) {
 			}
 
 			if(maxDepthFile.is_open()){
-				maxDepthFile << sl::zed::Camera::getDepthClampValue();
+				maxDepthFile << zed->getDepthClampValue();
 			}
 			else{
-				std::out << "Unable to open maxDepthFile txt file.";
+				std::cout << "Unable to open maxDepthFile txt file.";
 			}
 
 			//write to png file
