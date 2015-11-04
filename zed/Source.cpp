@@ -199,12 +199,20 @@ int main(int argc, char **argv) {
 		//Take only one picture and output file once.
 		if (pictureTaken == false){
 			std::ofstream depthFile("depth.txt");
+			std::ofstream maxDepthFile("maxDepth.txt");
 			if (depthFile.is_open()){
 				depthFile << "myDepth = " << std::endl << myDepth << std::endl << std::endl;
 				depthFile.close();
 			}
 			else {
 				std::cout << "Unable to open myDepth txt file.";
+			}
+
+			if(maxDepthFile.is_open()){
+				maxDepthFile << sl::zed::Camera::getDepthClampValue();
+			}
+			else{
+				std::out << "Unable to open maxDepthFile txt file.";
 			}
 
 			//write to png file
