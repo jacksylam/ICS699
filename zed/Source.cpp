@@ -247,7 +247,6 @@ int main(int argc, char **argv) {
 			cv::cvtColor(sideBySidePictureMat, sideBySidePictureMat, CV_RGBA2RGB);
 			cv::imwrite(sideBySidePictureFileName, sideBySidePictureMat);
 
-
 			pictureTaken = true;
 		}
 		imshow(mouseStruct.name, depthDisplay);
