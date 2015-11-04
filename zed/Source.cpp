@@ -221,7 +221,7 @@ int main(int argc, char **argv) {
 						depthFileOnly << ptr_d[j];
 
 						//write to formated file
-						depthFileFormated << j + " "  + i + " " + ptr+d[j];
+						depthFileFormated << j << " " << i << " " << ptr_d[j] << std::endl;
 
 						// if not end of the current row, we add a space character
 						if (j != (depth.width * depth.channels) - 1)
