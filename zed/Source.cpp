@@ -209,6 +209,8 @@ int main(int argc, char **argv) {
 			}
 
 			std::ofstream depthFileOnly("mmDepth.txt");
+			std::ofstream depthFileFormated("mmDepthFormat.txt");
+
 			if (depthFileOnly.is_open()){//save depth in mm
 				float* ptr_d;
 				for (int i = 0; i < depth.height; ++i)
@@ -217,6 +219,10 @@ int main(int argc, char **argv) {
 					for (int j = 0; j < depth.width * depth.channels; ++j)
 					{
 						depthFileOnly << ptr_d[j];
+
+						//write to formated file
+						depthFileFormated << j + " "  + i + " " + ptr+d[j];
+
 						// if not end of the current row, we add a space character
 						if (j != (depth.width * depth.channels) - 1)
 							depthFileOnly << " ";
@@ -224,10 +230,12 @@ int main(int argc, char **argv) {
 					depthFileOnly << "\n";
 				}
 				depthFileOnly.close();
+				depthFileFormated.close();
 			}
 			else{
 				std::cout << "Error with depth only txt.";
 			}
+
 
 
 
