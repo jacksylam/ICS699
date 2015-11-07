@@ -93,6 +93,50 @@ void saveSbSimage(sl::zed::Camera* zed, std::string filename) {
 	cv::imwrite(filename, SbS);
 }
 
+void computeDepthRBGPoints(sl::zed::Camera* zed, sl::zed::Mat depth, cv::Mat leftImage, cv::Mat rightImage){
+	float baseline = zed->getParameters()->baseline;
+	float focal = zed->getParameters()->LeftCam.fx;
+	std::ofstream depthFileRGBPoints("depthFileRGBPoints.txt");
+
+	cv::Mat leftImageFloatMat(depth.height, depth.width, CV_32FC4);
+	cv::Mat rightImageFloatMat(depth.height, depth.width, CV_32FC4);
+
+	float* ptr_d;
+	for (int i = 0; i < depth.height; ++i) {
+		ptr_d = (float*)(depth.data + i * depth.step);
+		for (int j = 0; j < depth.width * depth.channels; ++j) {
+
+			//calculate RGB
+			int jKnot = -(baseline * focal / ptr_d[j] - j);
+
+			cv::Vec4b leftPixel = leftImage.at<cv::Vec4b>(i, j);
+			cv::Vec4b rightPixel = rightImage.at<cv::Vec4b>(i, jKnot);
+
+			unsigned char leftRed = leftPixel[0];
+			unsigned char leftGreen = leftPixel[1];
+			unsigned char leftBlue = leftPixel[2];
+			unsigned char leftAlpha = leftPixel[3];
+
+			unsigned char rightRed = rightPixel[0];
+			unsigned char rightGreen = rightPixel[1];
+			unsigned char rightBlue = rightPixel[2];
+			unsigned char rightAlpha = rightPixel[3];
+
+			int red = ((int)leftRed + (int)rightRed) / 2;
+			int green = ((int)leftGreen + (int)rightGreen) / 2;
+			int blue = ((int)leftBlue + (int)rightBlue) / 2;
+
+			if (ptr_d[j] > -1){
+				depthFileRGBPoints << j << " " << i << " " << ptr_d[j] << " " << red << " " << green << " " << blue << " " << std::endl;
+			}
+			else{
+				depthFileRGBPoints << j << " " << i << " " << "0" << " " << red << " " << green << " " << blue << " " << std::endl;
+			}
+		}
+	}
+
+	depthFileRGBPoints.close();
+}
 
 
 //main  function
@@ -237,6 +281,8 @@ int main(int argc, char **argv) {
 			}
 
 
+			computeDepthRBGPoints(zed, depth, slMat2cvMat(zed->retrieveImage(sl::zed::SIDE::LEFT)), slMat2cvMat(zed->retrieveImage(sl::zed::SIDE::RIGHT)));
+			
 
 
 			//write to png file
