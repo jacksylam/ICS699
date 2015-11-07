@@ -152,7 +152,7 @@ int main(int argc, char **argv) {
 	sl::zed::Camera* zed;
 
 	if (argc == 1) // Use in Live Mode
-		zed = new sl::zed::Camera(sl::zed::HD720);
+		zed = new sl::zed::Camera(sl::zed::HD2K);
 	else // Use in SVO playback mode
 		zed = new sl::zed::Camera(argv[1]);
 
