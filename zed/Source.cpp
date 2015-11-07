@@ -122,15 +122,16 @@ void computeDepthRBGPoints(sl::zed::Camera* zed, sl::zed::Mat depth, cv::Mat lef
 			unsigned char rightBlue = rightPixel[2];
 			unsigned char rightAlpha = rightPixel[3];
 
-			int red = ((int)leftRed + (int)rightRed) / 2;
-			int green = ((int)leftGreen + (int)rightGreen) / 2;
-			int blue = ((int)leftBlue + (int)rightBlue) / 2;
+			int red = ((int)leftRed + (int)rightRed) / 2 / 255;
+			int green = ((int)leftGreen + (int)rightGreen) / 2 / 255;
+			int blue = ((int)leftBlue + (int)rightBlue) / 2 / 255;
+			int alpha = ((int)leftAlpha + (int)rightAlpha) / 2;
 
 			if (ptr_d[j] > -1){
-				depthFileRGBPoints << j << " " << i << " " << ptr_d[j] << " " << red << " " << green << " " << blue << " " << std::endl;
+				depthFileRGBPoints << j << " " << i << " " << ptr_d[j] << " " << red << " " << green << " " << blue << " " << alpha <<  std::endl;
 			}
 			else{
-				depthFileRGBPoints << j << " " << i << " " << "0" << " " << red << " " << green << " " << blue << " " << std::endl;
+				depthFileRGBPoints << j << " " << i << " " << "0" << " " << red << " " << green << " " << blue << " " << alpha <<  std::endl;
 			}
 		}
 	}
@@ -282,7 +283,7 @@ int main(int argc, char **argv) {
 
 
 			computeDepthRBGPoints(zed, depth, slMat2cvMat(zed->retrieveImage(sl::zed::SIDE::LEFT)), slMat2cvMat(zed->retrieveImage(sl::zed::SIDE::RIGHT)));
-			
+
 
 
 			//write to png file
