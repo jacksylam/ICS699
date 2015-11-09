@@ -37,6 +37,7 @@
 #include <chrono>
 #include <iostream>
 #include <fstream>
+#include <iomanip>
 
 
 //opencv includes
@@ -98,8 +99,8 @@ void computeDepthRBGPoints(sl::zed::Camera* zed, sl::zed::Mat depth, cv::Mat lef
 	float focal = zed->getParameters()->LeftCam.fx;
 	std::ofstream depthFileRGBPoints("depthFileRGBPoints.txt");
 
-	cv::Mat leftImageFloatMat(depth.height, depth.width, CV_32FC4);
-	cv::Mat rightImageFloatMat(depth.height, depth.width, CV_32FC4);
+	//Record initial precision for stream purposes
+	std::streamsize initialPrecision = std::cout.precision();
 
 	float* ptr_d;
 	for (int i = 0; i < depth.height; ++i) {
@@ -107,7 +108,10 @@ void computeDepthRBGPoints(sl::zed::Camera* zed, sl::zed::Mat depth, cv::Mat lef
 		for (int j = 0; j < depth.width * depth.channels; ++j) {
 
 			//calculate RGB
-			int jKnot = -(baseline * focal / ptr_d[j] - j);
+			float jKnot = -(baseline * focal / ptr_d[j] - j);
+			if (jKnot > depth.width){
+				jKnot = 0;
+			}
 
 			cv::Vec4b leftPixel = leftImage.at<cv::Vec4b>(i, j);
 			cv::Vec4b rightPixel = rightImage.at<cv::Vec4b>(i, jKnot);
@@ -122,16 +126,16 @@ void computeDepthRBGPoints(sl::zed::Camera* zed, sl::zed::Mat depth, cv::Mat lef
 			unsigned char rightBlue = rightPixel[2];
 			unsigned char rightAlpha = rightPixel[3];
 
-			int red = ((int)leftRed + (int)rightRed) / 2 / 255;
-			int green = ((int)leftGreen + (int)rightGreen) / 2 / 255;
-			int blue = ((int)leftBlue + (int)rightBlue) / 2 / 255;
-			int alpha = ((int)leftAlpha + (int)rightAlpha) / 2;
+			float red = ((int)leftRed + (int)rightRed) / 510.0;
+			float green = ((int)leftGreen + (int)rightGreen) / 510.0;
+			float blue = ((int)leftBlue + (int)rightBlue) / 510.0;
+			float alpha = ((int)leftAlpha + (int)rightAlpha) / 510.0;
 
 			if (ptr_d[j] > -1){
-				depthFileRGBPoints << j << " " << i << " " << ptr_d[j] << " " << red << " " << green << " " << blue << " " << alpha <<  std::endl;
+				depthFileRGBPoints << std::setprecision(initialPrecision) << j << " " << i << " " << ptr_d[j] << " " << std::setprecision(3) << red << " " << green << " " << blue << " " << alpha << std::endl;
 			}
 			else{
-				depthFileRGBPoints << j << " " << i << " " << "0" << " " << red << " " << green << " " << blue << " " << alpha <<  std::endl;
+				depthFileRGBPoints << std::setprecision(initialPrecision) << j << " " << i << " " << "0" << " " << std::setprecision(3) << red << " " << green << " " << blue << " " << alpha << std::endl;
 			}
 		}
 	}
@@ -153,7 +157,7 @@ int main(int argc, char **argv) {
 	sl::zed::Camera* zed;
 
 	if (argc == 1) // Use in Live Mode
-		zed = new sl::zed::Camera(sl::zed::HD2K);
+		zed = new sl::zed::Camera(sl::zed::HD1080);
 	else // Use in SVO playback mode
 		zed = new sl::zed::Camera(argv[1]);
 
@@ -281,8 +285,12 @@ int main(int argc, char **argv) {
 				std::cout << "Error with depth only txt.";
 			}
 
+			cv::Mat leftImageMat(height, width, CV_8UC4);
+			cv::Mat rightImageMat(height, width, CV_8UC4);
 
-			computeDepthRBGPoints(zed, depth, slMat2cvMat(zed->retrieveImage(sl::zed::SIDE::LEFT)), slMat2cvMat(zed->retrieveImage(sl::zed::SIDE::RIGHT)));
+			leftImageMat = slMat2cvMat(zed->getView(sl::zed::VIEW_MODE::STEREO_LEFT));
+			rightImageMat = slMat2cvMat(zed->getView(sl::zed::VIEW_MODE::STEREO_RIGHT));
+			computeDepthRBGPoints(zed, depth, leftImageMat, rightImageMat);
 
 
 
