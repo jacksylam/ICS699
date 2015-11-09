@@ -107,29 +107,19 @@ void computeDepthRBGPoints(sl::zed::Camera* zed, sl::zed::Mat depth, cv::Mat lef
 		ptr_d = (float*)(depth.data + i * depth.step);
 		for (int j = 0; j < depth.width * depth.channels; ++j) {
 
-			//calculate RGB
-			float jKnot = -(baseline * focal / ptr_d[j] - j);
-			if (jKnot > depth.width){
-				jKnot = 0;
-			}
-
+			//Bad solution. Only use left image to compute color.
 			cv::Vec4b leftPixel = leftImage.at<cv::Vec4b>(i, j);
-			cv::Vec4b rightPixel = rightImage.at<cv::Vec4b>(i, jKnot);
 
 			unsigned char leftRed = leftPixel[0];
 			unsigned char leftGreen = leftPixel[1];
 			unsigned char leftBlue = leftPixel[2];
 			unsigned char leftAlpha = leftPixel[3];
 
-			unsigned char rightRed = rightPixel[0];
-			unsigned char rightGreen = rightPixel[1];
-			unsigned char rightBlue = rightPixel[2];
-			unsigned char rightAlpha = rightPixel[3];
-
-			float red = ((int)leftRed + (int)rightRed) / 510.0;
-			float green = ((int)leftGreen + (int)rightGreen) / 510.0;
-			float blue = ((int)leftBlue + (int)rightBlue) / 510.0;
-			float alpha = ((int)leftAlpha + (int)rightAlpha) / 510.0;
+			
+			float red = ((int)leftRed) / 255.0;
+			float green = ((int)leftGreen) / 255.0;
+			float blue = ((int)leftBlue) / 255.0;
+			float alpha = ((int)leftAlpha) / 255.0;
 
 			if (ptr_d[j] > -1){
 				depthFileRGBPoints << std::setprecision(initialPrecision) << j << " " << i << " " << ptr_d[j] << " " << std::setprecision(3) << red << " " << green << " " << blue << " " << alpha << std::endl;
@@ -291,8 +281,6 @@ int main(int argc, char **argv) {
 			leftImageMat = slMat2cvMat(zed->getView(sl::zed::VIEW_MODE::STEREO_LEFT));
 			rightImageMat = slMat2cvMat(zed->getView(sl::zed::VIEW_MODE::STEREO_RIGHT));
 			computeDepthRBGPoints(zed, depth, leftImageMat, rightImageMat);
-
-
 
 			//write to png file
 			std::string depthPictureFileName = "depthPicture.png";
