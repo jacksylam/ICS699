@@ -312,7 +312,8 @@ int main(int argc, char **argv) {
 
 		cv::Mat leftDetectMat(height, width, CV_8UC4);
 		leftDetectMat = slMat2cvMat(zed->getView(sl::zed::VIEW_MODE::STEREO_LEFT));
-		cv::CascadeClassifier face_cascade = cv::CascadeClassifier("C:\opencv\sources\data\haarcascades\haarcascade_frontalface_alt.xml");
+
+		cv::CascadeClassifier face_cascade = cv::CascadeClassifier("haarcascade_frontalface_default.xml");
 		cv::CascadeClassifier eye_cascade = cv::CascadeClassifier("C:\opencv\sources\data\haarcascades\haarcascade_eye.xml");
 
 		cv::cvtColor(leftDetectMat, detectGray, CV_RGB2GRAY);
@@ -339,12 +340,16 @@ int main(int argc, char **argv) {
 
 		int i = 0;
 		float scale = 1.3;
-		cv::Mat gray, smallImg(cvRound(leftDetectMat.rows / scale), cvRound(leftDetectMat.cols / scale), CV_8UC4);
+		cv::Mat gray, smallImg(cvRound(leftDetectMat.rows / scale), cvRound(leftDetectMat.cols / scale), CV_8UC1);
 		cv::cvtColor(leftDetectMat, gray, CV_RGB2GRAY);
-		cv::resize(gray, smallImg, smallImg.size(), 0, 0, cv::INTER_LINEAR);
+		cv::resize(gray, smallImg, smallImg.size(), 0, 0);
 		cv::equalizeHist(smallImg, smallImg);
-		face_cascade.detectMultiScale(leftDetectMat, faces, 1.1, 2, 0 | CV_HAAR_SCALE_IMAGE, cv::Size(30, 30));
+		face_cascade.detectMultiScale(smallImg, faces,
+			1.1, 2, 0,
+			cv::Size(30, 30));
 		std::cout << faces.size();
+
+
 
 		for (cv::vector<cv::Rect>::const_iterator r = faces.begin(); r != faces.end(); r++, i++){
 			cv::Mat smallImgROI;
