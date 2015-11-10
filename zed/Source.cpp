@@ -312,19 +312,19 @@ int main(int argc, char **argv) {
 
 		cv::Mat leftDetectMat(height, width, CV_8UC4);
 		leftDetectMat = slMat2cvMat(zed->getView(sl::zed::VIEW_MODE::STEREO_LEFT));
-		cv::CascadeClassifier face_cascade = cv::CascadeClassifier("C:\opencv\sources\data\haarcascades\haarcascade_frontalface_default.xml");
-		cv::CascadeClassifier eye_cascade = cv::CascadeClassifier("C:\opencv\sources\data\haarcascades\haarcascade_eye.xml");
+		cv::CascadeClassifier face_cascade = cv::CascadeClassifier("haarcascade_frontalface_default.xml");
+		cv::CascadeClassifier eye_cascade = cv::CascadeClassifier("haarcascade_eye.xml");
 
 		cv::cvtColor(leftDetectMat, detectGray, CV_RGB2GRAY);
 		cv::vector<cv::Rect> faces;
 		cv::vector<cv::Rect> eyes;
-		face_cascade.detectMultiScale(detectGray, faces, 1.3, 5);
+		face_cascade.detectMultiScale(detectGray, faces, 1.3);
 
 		for (int i = 0; i < faces.size(); ++i){
 			cv::rectangle(leftDetectMat, faces.at(i), (255, 0, 0), 2);
 			cv::Mat roi_gray(detectGray, cv::Rect(faces.at(i).x, faces.at(i).y, faces.at(i).width, faces.at(i).height));
 			cv::Mat roi_color(leftDetectMat, cv::Rect(faces.at(i).x, faces.at(i).y, faces.at(i).width, faces.at(i).height));
-			eye_cascade.detectMultiScale(roi_gray, eyes, 1.3, 5);
+			eye_cascade.detectMultiScale(roi_gray, eyes, 1.3);
 			for (int j = 0; j < eyes.size(); ++j){
 				cv::rectangle(roi_color, eyes.at(i), (0, 255, 0), 2);
 			}
