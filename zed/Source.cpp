@@ -40,8 +40,13 @@
 #include <iomanip>
 
 
+
 //opencv includes
 #include <opencv2/core/core.hpp>
+#include <opencv2/objdetect/objdetect.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+
 
 //ZED Includes
 #include <zed/Camera.hpp>
@@ -180,6 +185,8 @@ int main(int argc, char **argv) {
 	cv::Mat confidencemap(height, width, CV_8UC4);
 	cv::Mat canny(height, width, CV_8UC4);
 	cv::Mat myDepth(height, width, CV_8UC4);
+	cv::Mat detect(height, width, CV_8UC4);
+	cv::Mat detectGray(height, width, CV_8UC4);
 
 
 
@@ -188,6 +195,7 @@ int main(int argc, char **argv) {
 	cv::Mat anaplyphDisplay(DisplaySize, CV_8UC4);
 	cv::Mat confidencemapDisplay(DisplaySize, CV_8UC4);
 	cv::Mat depthDisplay(DisplaySize, CV_8UC4);
+	cv::Mat detectDisplay(DisplaySize, CV_8UC4);
 
 
 
@@ -208,7 +216,7 @@ int main(int argc, char **argv) {
 	cv::setMouseCallback("DEPTH", onMouseCallback, (void*)&mouseStruct);
 	cv::namedWindow("VIEW", cv::WINDOW_AUTOSIZE);
 
-	bool pictureTaken = false;
+	bool pictureTaken = true;
 
 	//loop until 'q' is pressed
 	while (key != 'q') {
@@ -280,7 +288,7 @@ int main(int argc, char **argv) {
 
 			leftImageMat = slMat2cvMat(zed->getView(sl::zed::VIEW_MODE::STEREO_LEFT));
 			rightImageMat = slMat2cvMat(zed->getView(sl::zed::VIEW_MODE::STEREO_RIGHT));
-			computeDepthRBGPoints(zed, depth, leftImageMat, rightImageMat);
+			//computeDepthRBGPoints(zed, depth, leftImageMat, rightImageMat);
 
 			//write to png file
 			std::string depthPictureFileName = "depthPicture.png";
@@ -297,13 +305,35 @@ int main(int argc, char **argv) {
 			slMat2cvMat(zed->retrieveImage(sl::zed::SIDE::RIGHT)).copyTo(rightIm);
 			cv::cvtColor(sideBySidePictureMat, sideBySidePictureMat, CV_RGBA2RGB);
 			cv::imwrite(sideBySidePictureFileName, sideBySidePictureMat);
-
+			
 			pictureTaken = true;
 		}
+
+
+		cv::Mat leftDetectMat(height, width, CV_8UC4);
+		leftDetectMat = slMat2cvMat(zed->getView(sl::zed::VIEW_MODE::STEREO_LEFT));
+		cv::CascadeClassifier face_cascade = cv::CascadeClassifier("C:\opencv\sources\data\haarcascades\haarcascade_frontalface_default.xml");
+		cv::CascadeClassifier eye_cascade = cv::CascadeClassifier("C:\opencv\sources\data\haarcascades\haarcascade_eye.xml");
+
+		cv::cvtColor(leftDetectMat, detectGray, CV_RGB2GRAY);
+		cv::vector<cv::Rect> faces;
+		cv::vector<cv::Rect> eyes;
+		face_cascade.detectMultiScale(detectGray, faces, 1.3, 5);
+
+		for (int i = 0; i < faces.size(); ++i){
+			cv::rectangle(leftDetectMat, faces.at(i), (255, 0, 0), 2);
+			cv::Mat roi_gray(detectGray, cv::Rect(faces.at(i).x, faces.at(i).y, faces.at(i).width, faces.at(i).height));
+			cv::Mat roi_color(leftDetectMat, cv::Rect(faces.at(i).x, faces.at(i).y, faces.at(i).width, faces.at(i).height));
+			eye_cascade.detectMultiScale(roi_gray, eyes, 1.3, 5);
+			for (int j = 0; j < eyes.size(); ++j){
+				cv::rectangle(roi_color, eyes.at(i), (0, 255, 0), 2);
+			}
+		}
+
+		cv::resize(leftDetectMat, detectDisplay, DisplaySize);
+		imshow("detect", detectDisplay);
+
 		imshow(mouseStruct.name, depthDisplay);
-
-
-
 		imshow("VIEW", anaplyphDisplay);
 
 
