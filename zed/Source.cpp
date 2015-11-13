@@ -140,21 +140,21 @@ void computeDepthRBGPoints(sl::zed::Camera* zed, sl::zed::Mat depth, cv::Mat lef
 
 cv::Mat detectFace(cv::Mat leftDetectMat){
 	cv::Mat detectGray(leftDetectMat.size().height, leftDetectMat.size().width, CV_8UC4);
+	cv::CascadeClassifier body_cascade = cv::CascadeClassifier("haarcascade_upperbody.xml");
 	cv::CascadeClassifier face_cascade = cv::CascadeClassifier("haarcascade_frontalface_alt.xml");
-	cv::CascadeClassifier eye_cascade = cv::CascadeClassifier("haarcascade_eye.xml");
 
 	cv::cvtColor(leftDetectMat, detectGray, CV_RGB2GRAY);
+	cv::vector<cv::Rect> bodies;
 	cv::vector<cv::Rect> faces;
-	cv::vector<cv::Rect> eyes;
-	face_cascade.detectMultiScale(detectGray, faces, 1.3);
+	body_cascade.detectMultiScale(detectGray, bodies, 1.3);
 
-	for (int i = 0; i < faces.size(); ++i){
-		cv::rectangle(leftDetectMat, faces.at(i), cv::Scalar(255, 255, 0), 2);
-		cv::Mat roi_gray(detectGray, cv::Rect(faces.at(i).x, faces.at(i).y, faces.at(i).width, faces.at(i).height));
-		cv::Mat roi_color(leftDetectMat, cv::Rect(faces.at(i).x, faces.at(i).y, faces.at(i).width, faces.at(i).height));
-		eye_cascade.detectMultiScale(roi_gray, eyes, 1.3);
-		for (int j = 0; j < eyes.size(); ++j){
-			cv::rectangle(roi_color, eyes.at(i), cv::Scalar(0, 255, 255), 2);
+	for (int i = 0; i < bodies.size(); ++i){
+		cv::rectangle(leftDetectMat, bodies.at(i), cv::Scalar(255, 255, 0), 2);
+		cv::Mat roi_gray(detectGray, cv::Rect(bodies.at(i).x, bodies.at(i).y, bodies.at(i).width, bodies.at(i).height));
+		cv::Mat roi_color(leftDetectMat, cv::Rect(bodies.at(i).x, bodies.at(i).y, bodies.at(i).width, bodies.at(i).height));
+		face_cascade.detectMultiScale(roi_gray, faces, 1.3);
+		for (int j = 0; j < faces.size(); ++j){
+			cv::rectangle(roi_color, faces.at(i), cv::Scalar(0, 255, 255), 2);
 		}
 	}
 	return leftDetectMat;
