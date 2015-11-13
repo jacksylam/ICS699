@@ -1,9 +1,9 @@
 ///////////////////////////////////////////////////////////////////////////
 //
 // Copyright (c) 2015, STEREOLABS.
-// 
+//
 // All rights reserved.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -35,18 +35,21 @@
 #include <string.h>
 #include <ctime>
 #include <chrono>
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+
 
 
 //opencv includes
 #include <opencv2/core/core.hpp>
-//#include <opencv2/highgui/highgui.hpp>
-//#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/objdetect/objdetect.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+
 
 //ZED Includes
 #include <zed/Camera.hpp>
-
-//using namespace sl::zed;
-//using namespace std;
 
 //Define the structure and callback for mouse event
 typedef struct mouseOCVStruct {
@@ -79,8 +82,6 @@ static void onMouseCallback(int32_t event, int32_t x, int32_t y, int32_t flag, v
 
 
 
-
-
 // save function using opencv
 void saveSbSimage(sl::zed::Camera* zed, std::string filename) {
 	sl::zed::resolution imSize = zed->getImageSize();
@@ -98,6 +99,66 @@ void saveSbSimage(sl::zed::Camera* zed, std::string filename) {
 	cv::imwrite(filename, SbS);
 }
 
+void computeDepthRBGPoints(sl::zed::Camera* zed, sl::zed::Mat depth, cv::Mat leftImage, cv::Mat rightImage){
+	float baseline = zed->getParameters()->baseline;
+	float focal = zed->getParameters()->LeftCam.fx;
+	std::ofstream depthFileRGBPoints("depthFileRGBPoints.txt");
+
+	//Record initial precision for stream purposes
+	std::streamsize initialPrecision = std::cout.precision();
+
+	float* ptr_d;
+	for (int i = 0; i < depth.height; ++i) {
+		ptr_d = (float*)(depth.data + i * depth.step);
+		for (int j = 0; j < depth.width * depth.channels; ++j) {
+
+			//Bad solution. Only use left image to compute color.
+			cv::Vec4b leftPixel = leftImage.at<cv::Vec4b>(i, j);
+
+			unsigned char leftRed = leftPixel[0];
+			unsigned char leftGreen = leftPixel[1];
+			unsigned char leftBlue = leftPixel[2];
+			unsigned char leftAlpha = leftPixel[3];
+
+			
+			float red = ((int)leftRed) / 255.0;
+			float green = ((int)leftGreen) / 255.0;
+			float blue = ((int)leftBlue) / 255.0;
+			float alpha = ((int)leftAlpha) / 255.0;
+
+			if (ptr_d[j] > -1){
+				depthFileRGBPoints << std::setprecision(initialPrecision) << j << " " << i << " " << ptr_d[j] << " " << std::setprecision(3) << red << " " << green << " " << blue << " " << alpha << std::endl;
+			}
+			else{
+				depthFileRGBPoints << std::setprecision(initialPrecision) << j << " " << i << " " << "0" << " " << std::setprecision(3) << red << " " << green << " " << blue << " " << alpha << std::endl;
+			}
+		}
+	}
+
+	depthFileRGBPoints.close();
+}
+
+cv::Mat detectFace(cv::Mat leftDetectMat){
+	cv::Mat detectGray(leftDetectMat.size().height, leftDetectMat.size().width, CV_8UC4);
+	cv::CascadeClassifier face_cascade = cv::CascadeClassifier("haarcascade_frontalface_alt.xml");
+	cv::CascadeClassifier eye_cascade = cv::CascadeClassifier("haarcascade_eye.xml");
+
+	cv::cvtColor(leftDetectMat, detectGray, CV_RGB2GRAY);
+	cv::vector<cv::Rect> faces;
+	cv::vector<cv::Rect> eyes;
+	face_cascade.detectMultiScale(detectGray, faces, 1.3);
+
+	for (int i = 0; i < faces.size(); ++i){
+		cv::rectangle(leftDetectMat, faces.at(i), cv::Scalar(255, 255, 0), 2);
+		cv::Mat roi_gray(detectGray, cv::Rect(faces.at(i).x, faces.at(i).y, faces.at(i).width, faces.at(i).height));
+		cv::Mat roi_color(leftDetectMat, cv::Rect(faces.at(i).x, faces.at(i).y, faces.at(i).width, faces.at(i).height));
+		eye_cascade.detectMultiScale(roi_gray, eyes, 1.3);
+		for (int j = 0; j < eyes.size(); ++j){
+			cv::rectangle(roi_color, eyes.at(i), cv::Scalar(0, 255, 255), 2);
+		}
+	}
+	return leftDetectMat;
+}
 
 
 //main  function
@@ -113,7 +174,7 @@ int main(int argc, char **argv) {
 	sl::zed::Camera* zed;
 
 	if (argc == 1) // Use in Live Mode
-		zed = new sl::zed::Camera(sl::zed::VGA);
+		zed = new sl::zed::Camera(sl::zed::HD1080);
 	else // Use in SVO playback mode
 		zed = new sl::zed::Camera(argv[1]);
 
@@ -145,7 +206,8 @@ int main(int argc, char **argv) {
 	cv::Mat anaplyph(height, width, CV_8UC4);
 	cv::Mat confidencemap(height, width, CV_8UC4);
 	cv::Mat canny(height, width, CV_8UC4);
-	cv::Mat canny2(height, width, CV_8UC4);
+	cv::Mat myDepth(height, width, CV_8UC4);
+	cv::Mat detect(height, width, CV_8UC4);
 
 
 
@@ -154,8 +216,8 @@ int main(int argc, char **argv) {
 	cv::Mat dispDisplay(DisplaySize, CV_8UC4);
 	cv::Mat anaplyphDisplay(DisplaySize, CV_8UC4);
 	cv::Mat confidencemapDisplay(DisplaySize, CV_8UC4);
-	cv::Mat cannyDisplay(DisplaySize, CV_8UC4);
-	cv::Mat cannyDisplay2(DisplaySize, CV_8UC4);
+	cv::Mat depthDisplay(DisplaySize, CV_8UC4);
+	cv::Mat detectDisplay(DisplaySize, CV_8UC4);
 
 
 
@@ -172,12 +234,11 @@ int main(int argc, char **argv) {
 	/***/
 
 	//create Opencv Windows
-	//cv::namedWindow("Disp", cv::WINDOW_AUTOSIZE);
-	//cv::setMouseCallback("Disp", onMouseCallback, (void*)&mouseStruct);
-	cv::namedWindow("VIEW", cv::WINDOW_AUTOSIZE);
-	cv::namedWindow("Canny", cv::WINDOW_AUTOSIZE);
-	cv::namedWindow("Canny2", cv::WINDOW_AUTOSIZE);
+	cv::namedWindow("DEPTH", cv::WINDOW_AUTOSIZE);
+	cv::setMouseCallback("DEPTH", onMouseCallback, (void*)&mouseStruct);
+	//cv::namedWindow("VIEW", cv::WINDOW_AUTOSIZE);
 
+	bool pictureTaken = false;
 
 	//loop until 'q' is pressed
 	while (key != 'q') {
@@ -189,68 +250,100 @@ int main(int argc, char **argv) {
 		// Get frames and launch the computation
 		bool res = zed->grab(dm_type);
 
-		depth = zed->retrieveMeasure(sl::zed::MEASURE::DEPTH); // Get the pointer
-
 		// The following is the best way to save a disparity map/ Image / confidence map in Opencv Mat.
 		// Be Careful, if you don't save the buffer/data on your own, it will be replace by a next retrieve (retrieveImage, NormalizeMeasure, getView....)
 		// !! Disparity, Depth, confidence are in 8U,C4 if normalized format !! //
 		// !! Disparity, Depth, confidence are in 32F,C1 if only retrieve !! //
 
 		/***************  DISPLAY:  ***************/
-		// Normalize disparity map (resolution defined by MODE in Camera::init, the quality factor)
-		if (DisplayDisp){
-			// slMat2cvMat(zed->normalizeMeasure(MEASURE::DISPARITY)).copyTo(disp);
+
+		slMat2cvMat(zed->getView(static_cast<sl::zed::VIEW_MODE>(ViewID))).copyTo(anaplyph);
+		cv::resize(anaplyph, anaplyphDisplay, DisplaySize);
+
+
+		slMat2cvMat(zed->normalizeMeasure(sl::zed::MEASURE::DEPTH)).copyTo(myDepth);
+		//slMat2cvMat(depth).copyTo(myDepth); //line crashes cv_cvtcolor
+		cv::resize(myDepth, depthDisplay, DisplaySize);
+
+
+		//Take only one picture and output file once.
+		if (pictureTaken == false){
+			std::ofstream depthFile("depth.txt");
+			if (depthFile.is_open()){//testing depth saving
+				depthFile << "myDepth = " << std::endl << myDepth << std::endl << std::endl;
+				depthFile.close();
+			}
+			else {
+				std::cout << "Unable to open myDepth txt file.";
+			}
+
+			std::ofstream depthFileOnly("mmDepth.txt");
+			std::ofstream depthFileFormated("mmDepthFormat.txt");
+
+			if (depthFileOnly.is_open()){//save depth in mm
+				float* ptr_d;
+				for (int i = 0; i < depth.height; ++i)
+				{
+					ptr_d = (float*)(depth.data + i * depth.step);
+					for (int j = 0; j < depth.width * depth.channels; ++j)
+					{
+						depthFileOnly << ptr_d[j];
+
+						//write to formated file
+						depthFileFormated << j << " " << i << " " << ptr_d[j] << std::endl;
+
+						// if not end of the current row, we add a space character
+						if (j != (depth.width * depth.channels) - 1)
+							depthFileOnly << " ";
+					}
+					depthFileOnly << "\n";
+				}
+				depthFileOnly.close();
+				depthFileFormated.close();
+			}
+			else{
+				std::cout << "Error with depth only txt.";
+			}
+
+			cv::Mat leftImageMat(height, width, CV_8UC4);
+			cv::Mat rightImageMat(height, width, CV_8UC4);
+
+			leftImageMat = slMat2cvMat(zed->getView(sl::zed::VIEW_MODE::STEREO_LEFT));
+			rightImageMat = slMat2cvMat(zed->getView(sl::zed::VIEW_MODE::STEREO_RIGHT));
+			//computeDepthRBGPoints(zed, depth, leftImageMat, rightImageMat);
+
+			//write to png file
+			std::string depthPictureFileName = "depthPicture.png";
+			cv::Mat myDepthPictureMat(height, width, CV_8UC4);
+			cv::cvtColor(myDepth, myDepthPictureMat, CV_RGBA2RGB);
+			cv::imwrite(depthPictureFileName, myDepthPictureMat);
+
+
+			std::string sideBySidePictureFileName = "sideBySide.png";
+			cv::Mat sideBySidePictureMat(height, 2 * width, CV_8UC4);
+			cv::Mat leftIm(sideBySidePictureMat, cv::Rect(0, 0, width, height));
+			cv::Mat rightIm(sideBySidePictureMat, cv::Rect(width, 0, width, height));
+			slMat2cvMat(zed->retrieveImage(sl::zed::SIDE::LEFT)).copyTo(leftIm);
+			slMat2cvMat(zed->retrieveImage(sl::zed::SIDE::RIGHT)).copyTo(rightIm);
+			cv::cvtColor(sideBySidePictureMat, sideBySidePictureMat, CV_RGBA2RGB);
+			cv::imwrite(sideBySidePictureFileName, sideBySidePictureMat);
+
+			pictureTaken = true;
 		}
-		else{
 
-			//  slMat2cvMat(zed->normalizeMeasure(MEASURE::DEPTH)).copyTo(disp);
+
+		if (false){
+			cv::Mat leftDetectMat(height, width, CV_8UC4);
+			leftDetectMat = slMat2cvMat(zed->getView(sl::zed::VIEW_MODE::STEREO_LEFT));
+
+
+			detect = detectFace(leftDetectMat);
+			cv::resize(detect, detectDisplay, DisplaySize);
+			imshow("detect", detectDisplay);
 		}
-
-		// To get the depth at a given position, click on the disparity map
-		// cv::resize(disp, dispDisplay,DisplaySize);
-		// imshow("Disp", dispDisplay);
-
-		if (displayConfidenceMap) {
-			// slMat2cvMat(zed->normalizeMeasure(MEASURE::CONFIDENCE)).copyTo(confidencemap);
-			// cv::resize(confidencemap, confidencemapDisplay, DisplaySize);
-			// imshow("confidence", confidencemapDisplay);
-		}
-
-
-
-		//Even if Left and Right images are still available through getView() function, it's better since v0.8.1 to use retrieveImage for cpu readback because GPU->CPU is done async during depth estimation. 
-		// Therefore :
-		// -- if disparity estimation is enabled in grab function, retrieveImage will take no time because GPU->CPU copy has already been done during disp estimation
-		// -- if disparity estimation is not enabled, GPU->CPU copy is done in retrieveImage fct, and this function will take the time of copy.
-		if (ViewID == sl::zed::STEREO_LEFT || ViewID == sl::zed::STEREO_RIGHT)
-		{
-			slMat2cvMat(zed->retrieveImage(static_cast<sl::zed::SIDE>(ViewID))).copyTo(anaplyph);
-			cv::resize(anaplyph, anaplyphDisplay, DisplaySize);
-
-
-			slMat2cvMat(zed->retrieveImage(static_cast<sl::zed::SIDE>(sl::zed::STEREO_LEFT))).copyTo(canny);
-
-			//cv::Canny(canny, cannyDisplay, 1, 300, 3, false);
-			//cv::resize(canny, cannyDisplay, DisplaySize);
-		}
-		else
-		{
-			slMat2cvMat(zed->getView(static_cast<sl::zed::VIEW_MODE>(ViewID))).copyTo(anaplyph);
-			cv::resize(anaplyph, anaplyphDisplay, DisplaySize);
-
-
-			slMat2cvMat(zed->getView(static_cast<sl::zed::VIEW_MODE>(sl::zed::STEREO_LEFT))).copyTo(canny);
-			cv::Canny(canny, cannyDisplay, 100, 250, 3, false);
-			cv::HoughLinesP(cannyDisplay, cannyDisplay2, 1, CV_PI / 180, 80, 30, 10);
-
-			//cv::Canny(canny, cannyDisplay2, 0, 100, 3, false);
-			//cv::resize(cannyDisplay, cannyDisplay, DisplaySize);
-		}
-
-		imshow("Canny", cannyDisplay);
-		imshow("Canny2", cannyDisplay2);
-
-		imshow("VIEW", anaplyphDisplay);
+		
+		imshow(mouseStruct.name, depthDisplay);
+		//imshow("VIEW", anaplyphDisplay);
 
 
 #ifdef WIN32
@@ -261,89 +354,15 @@ int main(int argc, char **argv) {
 
 		// Keyboard shortcuts
 		switch (key) {
-			// ______________  THRESHOLD __________________
-		case 'b':
-			ConfidenceIdx -= 10;
-			break;
-		case 'n':
-			ConfidenceIdx += 10;
-			break;
 
-			//re-compute stereo alignment
-		case 'a':
-			zed->reset();
-			break;
 
-			//Change camera settings (here --> gain)
-		case 'g': //increase gain of 1
-		{
-			int current_gain = zed->getCameraSettingsValue(sl::zed::ZED_GAIN);
-			zed->setCameraSettingsValue(sl::zed::ZED_GAIN, current_gain + 1);
-			std::cout << "set Gain to " << current_gain + 1 << std::endl;
-		}
-			break;
-
-		case 'h': //decrease gain of 1
-		{
-			int current_gain = zed->getCameraSettingsValue(sl::zed::ZED_GAIN);
-			zed->setCameraSettingsValue(sl::zed::ZED_GAIN, current_gain - 1);
-			std::cout << "set Gain to " << current_gain - 1 << std::endl;
-		}
-			break;
-			// ______________  VIEW __________________
-		case '0': // left
-			ViewID = 0;
-			break;
-		case '1': // right
-			ViewID = 1;
-			break;
-		case '2': // anaglyph
-			ViewID = 2;
-			break;
-		case '3': // gray scale diff
-			ViewID = 3;
-			break;
-		case '4': // Side by side
-			ViewID = 4;
-			break;
-		case '5': // overlay
-			ViewID = 5;
-			break;
-			// ______________  Display Confidence Map __________________
-		case 's':
-			displayConfidenceMap = !displayConfidenceMap;
-			break;
 			//______________ SAVE ______________
 		case 'w': // image
 			saveSbSimage(zed, std::string("ZEDImage") + std::to_string(count) + std::string(".png"));
 			count++;
 			break;
-		case 'v': // disparity
-		{
-			std::string filename = std::string(("ZEDDisparity") + std::to_string(count) + std::string(".png"));
-			cv::Mat dispSnapshot;
-			disp.copyTo(dispSnapshot);
-			cv::imshow("Saving Disparity", dispSnapshot);
-			cv::imwrite(filename, dispSnapshot);
-			count++;
-			break;
-		}
-		case 'r':
-			dm_type = sl::zed::SENSING_MODE::RAW;
-			std::cout << "SENSING_MODE: Raw" << std::endl;
-			break;
-		case 'f':
-			dm_type = sl::zed::SENSING_MODE::FULL;
-			std::cout << "SENSING_MODE: FULL" << std::endl;
-			break;
 
-		case 'd':
-			DisplayDisp = !DisplayDisp;
-			break;
 		}
-
-		ConfidenceIdx = ConfidenceIdx < 1 ? 1 : ConfidenceIdx;
-		ConfidenceIdx = ConfidenceIdx > 100 ? 100 : ConfidenceIdx;
 	}
 
 	delete zed;
