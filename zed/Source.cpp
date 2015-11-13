@@ -238,7 +238,7 @@ int main(int argc, char **argv) {
 	cv::setMouseCallback("DEPTH", onMouseCallback, (void*)&mouseStruct);
 	//cv::namedWindow("VIEW", cv::WINDOW_AUTOSIZE);
 
-	bool pictureTaken = true;
+	bool pictureTaken = false;
 
 	//loop until 'q' is pressed
 	while (key != 'q') {
@@ -332,7 +332,7 @@ int main(int argc, char **argv) {
 		}
 
 
-		if (true){
+		if (false){
 			cv::Mat leftDetectMat(height, width, CV_8UC4);
 			leftDetectMat = slMat2cvMat(zed->getView(sl::zed::VIEW_MODE::STEREO_LEFT));
 
