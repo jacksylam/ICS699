@@ -214,7 +214,7 @@ int main(int argc, char **argv) {
 	//create Opencv Windows
 	cv::namedWindow("DEPTH", cv::WINDOW_AUTOSIZE);
 	cv::setMouseCallback("DEPTH", onMouseCallback, (void*)&mouseStruct);
-	cv::namedWindow("VIEW", cv::WINDOW_AUTOSIZE);
+	//cv::namedWindow("VIEW", cv::WINDOW_AUTOSIZE);
 
 	bool pictureTaken = true;
 
@@ -305,7 +305,7 @@ int main(int argc, char **argv) {
 			slMat2cvMat(zed->retrieveImage(sl::zed::SIDE::RIGHT)).copyTo(rightIm);
 			cv::cvtColor(sideBySidePictureMat, sideBySidePictureMat, CV_RGBA2RGB);
 			cv::imwrite(sideBySidePictureFileName, sideBySidePictureMat);
-			
+
 			pictureTaken = true;
 		}
 
@@ -334,7 +334,7 @@ int main(int argc, char **argv) {
 		imshow("detect", detectDisplay);
 
 		imshow(mouseStruct.name, depthDisplay);
-		imshow("VIEW", anaplyphDisplay);
+		//imshow("VIEW", anaplyphDisplay);
 
 
 #ifdef WIN32
@@ -345,89 +345,15 @@ int main(int argc, char **argv) {
 
 		// Keyboard shortcuts
 		switch (key) {
-			// ______________  THRESHOLD __________________
-		case 'b':
-			ConfidenceIdx -= 10;
-			break;
-		case 'n':
-			ConfidenceIdx += 10;
-			break;
 
-			//re-compute stereo alignment
-		case 'a':
-			zed->reset();
-			break;
 
-			//Change camera settings (here --> gain)
-		case 'g': //increase gain of 1
-		{
-			int current_gain = zed->getCameraSettingsValue(sl::zed::ZED_GAIN);
-			zed->setCameraSettingsValue(sl::zed::ZED_GAIN, current_gain + 1);
-			std::cout << "set Gain to " << current_gain + 1 << std::endl;
-		}
-			break;
-
-		case 'h': //decrease gain of 1
-		{
-			int current_gain = zed->getCameraSettingsValue(sl::zed::ZED_GAIN);
-			zed->setCameraSettingsValue(sl::zed::ZED_GAIN, current_gain - 1);
-			std::cout << "set Gain to " << current_gain - 1 << std::endl;
-		}
-			break;
-			// ______________  VIEW __________________
-		case '0': // left
-			ViewID = 0;
-			break;
-		case '1': // right
-			ViewID = 1;
-			break;
-		case '2': // anaglyph
-			ViewID = 2;
-			break;
-		case '3': // gray scale diff
-			ViewID = 3;
-			break;
-		case '4': // Side by side
-			ViewID = 4;
-			break;
-		case '5': // overlay
-			ViewID = 5;
-			break;
-			// ______________  Display Confidence Map __________________
-		case 's':
-			displayConfidenceMap = !displayConfidenceMap;
-			break;
 			//______________ SAVE ______________
 		case 'w': // image
 			saveSbSimage(zed, std::string("ZEDImage") + std::to_string(count) + std::string(".png"));
 			count++;
 			break;
-		case 'v': // disparity
-		{
-			std::string filename = std::string(("ZEDDisparity") + std::to_string(count) + std::string(".png"));
-			cv::Mat dispSnapshot;
-			disp.copyTo(dispSnapshot);
-			cv::imshow("Saving Disparity", dispSnapshot);
-			cv::imwrite(filename, dispSnapshot);
-			count++;
-			break;
-		}
-		case 'r':
-			dm_type = sl::zed::SENSING_MODE::RAW;
-			std::cout << "SENSING_MODE: Raw" << std::endl;
-			break;
-		case 'f':
-			dm_type = sl::zed::SENSING_MODE::FULL;
-			std::cout << "SENSING_MODE: FULL" << std::endl;
-			break;
 
-		case 'd':
-			DisplayDisp = !DisplayDisp;
-			break;
 		}
-
-		ConfidenceIdx = ConfidenceIdx < 1 ? 1 : ConfidenceIdx;
-		ConfidenceIdx = ConfidenceIdx > 100 ? 100 : ConfidenceIdx;
 	}
 
 	delete zed;
